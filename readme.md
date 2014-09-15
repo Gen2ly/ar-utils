@@ -10,4 +10,4 @@ arpa  - (ar)ch (pa)ckage:   a generic package tasks wrapper script
 ---
 ```
 
-A **few** scripts aren't ready yet, they are `arbsd`, `arma`, and `arnew` (this works without and arguments, though `pacdiff` would probably be better.
+A **few** scripts aren't ready yet, they are `arbsd`, `arma`, and `arnew` (this works without and arguments, though `pacdiff` would probably be better).
