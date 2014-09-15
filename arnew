@@ -1,0 +1,38 @@
+#!/usr/bin/bash
+# New configurations differentiate (i.e. from original [*.pacnew files])
+
+# Usage display if incorrect number of parameters given
+if [ $# -gt 1 -o "$1" = -h -o "$1" = --help ]; then
+  echo "${0##*/} [*diff-editor] - new configurations differentiate (*.pacnew)"
+  exit 1; fi
+
+# Root permission required
+if (( $EUID )); then
+  echo "Root access required."
+  exit 1; fi
+
+# Diffeditor
+if [ "$1" ] && ! hash "$1" 2>&- ; then
+  echo "non-exist: "$1""
+  exit 1
+else
+  diffed="$1"; fi
+[ "$diffed" ] || diffed=vimdiff
+
+# rip pbrisbin's pacnews https://github.com/pbrisbin/scripts/blob/master/pacnews
+shopt -s globstar nullglob
+set -- "${1:-/etc}"/**/*.pacnew
+(( $# )) || exit 1
+
+for pacnew; do
+  current="${pacnew/.pacnew/}"
+  "$diffed" "$current" "$pacnew"
+done
+
+for pacnew; do
+    rm -iv "$pacnew"
+done
+
+# Alert of pacsave files
+pacsaves=$(find /etc -name "*.pacsave")
+[ "$pacsaves" ] && echo Pacsaves: && echo "$pacsaves"

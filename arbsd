@@ -1,0 +1,41 @@
+#!/usr/bin/bash
+# Download package build source
+
+# Download directories for source files (official and for the AUR) are defined
+# /etc/abs.conf and in the cower config respectively
+
+aur_url="http://aur.archlinux.org/packages"
+bld_dir="/home/todd/.local/abs/aur"
+
+aur_url_subdir=$(basename "$aur_url" | cut -c 1,2)
+
+# Program(s) required
+#progs_req=(abs cower)
+progs_req=(abs)
+for p in ${progs_req[@]}; do
+  hash "$p" 2>&- || \
+  { echo >&2 "Requires program: \"$p\"."; exit 1; }
+done
+
+# Usage display if no parameters given
+if [ $# -eq 0 ]; then
+  echo " ${0##*/} [repository/package] - download official/AUR package source files"
+  exit
+fi
+
+# dltest=$(wget --spider "$url"/"$pkgname"/"$pkgname".tar.gz 2>&1 | grep "broken link")
+# downloaddirectory test, existant rename
+# curl -o --quiet "$url"/"$pkgname/"$pkgname-abrev"/"$pkgname".src.tar.gz
+# chown -R $user:users "$builddir/"$pkgname"
+# rm $pkgname.src.tar.gz
+
+off_repos="$(grep ^REPOS /etc/abs.conf | sed -e 's/REPOS=(//' -e 's/!//g' -e \
+  's/ /\n  /g' -e 's/^/  /')"
+ofr_cases="$(grep ^REPOS /etc/abs.conf | sed -e 's/REPOS=(//' -e 's/!//g' -e \
+  's/ /\/* | /g' | perl -p -e 's/\n/\/*/')"
+
+eval "case \$1 in
+  aur*        ) cower -df "${1#*/}"                                           ;;
+  $ofr_cases  ) abs "$1"                                                      ;;
+  *           ) printf ' Unknown repository:\n$off_repos\n'                   ;;
+esac"

@@ -1,0 +1,126 @@
+#!/usr/bin/bash
+# (ar)ch (ma)kepkg - a generic makepkg tasks script for Arch Linux
+
+# configuration load
+config=~/.local/config/arma.conf
+if ! source "$config" 2>&-; then
+  echo -e "# (ar)ch (ma)kepkg configuration file\n\nmaintainer=\n\n# vim: set noet syn=conf:" | tee "$config"; fi
+####echo $config
+usage () {
+  echo " ${0##*/} [option] - a generic makepkg tasks wrapper script
+  -b, --build    - build package (install dependencies if required)
+  -m, --md5      - add md5sums
+  -r, --rmdir    - remove previous build directories
+  -s, --source   - create source files for upload
+  -t, --template - create PKGBUILD template
+  ---
+  -a, --aursub   - AUR submit"
+}
+
+pkgbldtst () {
+  [ ! -f PKGBUILD ] && echo "PKGBUILD does not exist" && exit 1
+}
+
+md5add () {
+  # Delete previous md5sum entries
+  sed -i "/^.*'[a-z0-9]\{32\}'.*$/d" PKGBUILD
+  sed -i "/^md5sums/,/$/d" PKGBUILD
+
+  # Save then delete the creation section (build/check/package section)
+  if   [[ $(grep ^build\(\)   PKGBUILD) ]]; then crtn_strt=build\(\)
+  elif [[ $(grep ^check\(\)   PKGBUILD) ]]; then crtn_strt=check\(\)
+  elif [[ $(grep ^package\(\) PKGBUILD) ]]; then crtn_strt=package\(\)
+  fi
+  sed -e '/'$crtn_strt'.*$/,$!d' PKGBUILD > /tmp/PKGBUILD.tmp
+  sed -i '/'$crtn_strt'.*$/,$d'  PKGBUILD
+
+  # Remove trailing blank lines so md5sums line follows last line
+  while [ "$(tail -n 1 PKGBUILD)" == "" ]; do
+    sed -i '$d' PKGBUILD
+  done
+
+  # Add md5sums
+  makepkg -g >> PKGBUILD
+
+  # Add blank line to seperate variable and build section
+  echo >> PKGBUILD
+
+  # Re-append build section
+  cat /tmp/PKGBUILD.tmp >> PKGBUILD
+
+  # Remove trailing blank lines to clean up
+  while [ "$(tail -n 1 PKGBUILD)" == "" ]; do
+    sed -i '$d' PKGBUILD
+  done
+
+  echo " Added md5sums"
+}
+
+bldsource () {
+  makepkg -f --source
+}
+
+bldsubmit () {
+  while true; do
+    pkgname=$(grep ^pkgname\= PKGBUILD | sed 's/pkgname=//')
+    pkgver=$(grep ^pkgver\= PKGBUILD   | sed 's/pkgver=//')
+    pkgrel=$(grep ^pkgrel\= PKGBUILD   | sed 's/pkgrel=//')
+    pbs_nm=$pkgname-$pkgver-$pkgrel.src.tar.gz
+    [ -f $pbs_nm ] || \
+    { echo " Package build source \""$pbs_nm"\" not found"; exit 1; }
+    read -p " Upload source ("$pbs_nm") to the AUR? (y/n): " yn
+    case $yn in
+    [Yy]* ) ctgrs=$(burp -c help | sed '1d' | sed '$d' | sed 's/^\t//g')
+            printf " Select category:\n"
+            select ctgr in $ctgrs; do
+              test -n $ctgr && break
+              echo " Select 1, 2, ..."
+            done
+            burp -c $ctgr $pbs_nm
+            break ;;
+    [Nn]* ) break ;;
+    *     ) echo "  Answer 'y' for yes, 'n' for no."
+    esac
+  done
+}
+
+bldtmpl () {
+  [ ! -f /usr/share/pacman/PKGBUILD.proto ] && \
+  echo " /usr/share/pacman/PKGBUILD.proto does not exist" && exit
+  cp /usr/share/pacman/PKGBUILD.proto PKGBUILD
+  # Delete description
+  sed -i '1,5d' PKGBUILD
+  # Change 'Maintainer' name and email
+  sed -i "s/^# Maintainer\: .*$/# Maintainer: $maintainer\n/" PKGBUILD
+  # Use directory name as pkgname
+  sed -i "s/^pkgname=.*$/pkgname=$(basename $(pwd))/" PKGBUILD
+  # Delete md5sums comment
+  sed -i "s/^md5sums=.*$/md5sums=()/" PKGBUILD
+  echo " Created PKGBUILD template"
+  # Prompt to copy prototype .install script 
+  while true; do
+    read -p " Copy prototype .install script? (y/n): " yn
+    case $yn in
+      [Yy] )  cp /usr/share/pacman/proto.install $(basename $(pwd)).install 
+              break 2;;
+      [Nn] )  break 2;;
+      * )     echo " Answer (y)es or (n)o."
+    esac
+  done
+}
+
+case $1 in
+  -b | --build )    pkgbldtst
+                    makepkg -sf                                         ;;
+  -m | --md5 )      pkgbldtst
+                    md5add                                              ;;
+  -r | --rmdir )    [ -d src ] && rm -rf src/ echo " Removed src/ dir"
+                    [ -d pkg ] && rm -rf pkg/ echo " Removed pkg/ dir"  ;;
+  -s | --source )   pkgbldtst
+                    bldsource                                           ;;
+  -t | --template ) bldtmpl                                             ;;
+
+  -a | --aursub )   pkgbldtst
+                    bldsubmit                                           ;; 
+  * ) usage
+esac
