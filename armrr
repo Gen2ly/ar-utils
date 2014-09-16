@@ -9,7 +9,7 @@ country=""
 
 # Usage display if incorrect number of parameters given
 if [ $# -gt 1 -o "$1" = -h -o "$1" = --help ]; then
-  echo "${0##*/} [*country code] - download pacman ranked mirrorlist"
+  echo "${0##*/} [*country code] - download pacman ranked mirror list"
   echo " "${countries[@]}"" | fmt -c -w 80
   exit 1; fi
 
